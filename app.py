@@ -28,9 +28,16 @@ app.config.update(
     SESSION_COOKIE_SECURE=os.environ.get("APP_ENV") == "production"
 )
 
-DATABASE = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "roomconnect.db"
+# ==========================================
+# DATABASE CONFIGURATION
+# ==========================================
+
+DATABASE = os.environ.get(
+    "DATABASE_PATH",
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "roomconnect.db"
+    )
 )
 
 
