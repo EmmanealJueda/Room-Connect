@@ -1,0 +1,150 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>LPU RoomConnect | Campus Room Availability System</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    <!-- Navigation Bar -->
+    <header>
+        <div class="logo">
+            LPU <span>RoomConnect</span>
+        </div>
+
+        <nav>
+            <a href="/">Home</a>
+            <a href="#about">About</a>
+            <a href="#login">Login</a>
+        </nav>
+    </header>
+
+
+    <!-- Main Homepage -->
+    <main>
+
+        <!-- Hero Section -->
+        <section class="hero">
+
+            <p class="tagline">SMART CAMPUS MANAGEMENT</p>
+
+            <h1>Find. Book. Manage.</h1>
+
+            <p class="description">
+                A smarter way to manage classroom availability,
+                faculty schedules and student timetables.
+            </p>
+
+            <a href="{{ url_for('login') }}" class="primary-btn">
+                Get Started
+            </a>
+
+        </section>
+
+
+        <!-- About Section -->
+        <section id="about" class="about">
+
+            <h2>One Platform. Better Campus Management.</h2>
+
+            <p>
+                LPU RoomConnect helps faculty manage classroom bookings
+                and allows students to view their class schedules
+                in one convenient place.
+
+                Our goal is to make campus room management
+                simple, efficient and organised.
+            </p>
+
+        </section>
+
+
+        <!-- Login Portals -->
+        <section id="login" class="login-section">
+
+            <h2>Choose Your Portal</h2>
+
+            <p>Select your account type to continue.</p>
+
+            <div class="login-cards">
+
+                <!-- Faculty Card -->
+                <div class="login-card">
+
+                    <h3>Faculty</h3>
+
+                    <p>
+                        Manage classroom bookings,
+                        schedules and timetables.
+                    </p>
+
+                    <a href="{{ url_for('login') }}"
+                       class="card-btn">
+                        Faculty Login
+                    </a>
+
+                </div>
+
+
+                <!-- Student Card -->
+                <div class="login-card">
+
+                    <h3>Students</h3>
+
+                    <p>
+                        View your section timetable,
+                        subjects and classroom details.
+                    </p>
+
+                    <a href="{{ url_for('login') }}"
+                       class="card-btn">
+                        Student Login
+                    </a>
+
+                </div>
+
+
+                <!-- Admin Card -->
+                <div class="login-card">
+
+                    <h3>Administrator</h3>
+
+                    <p>
+                        Manage academic blocks,
+                        rooms, users and bookings.
+                    </p>
+
+                    <a href="{{ url_for('login') }}"
+                       class="card-btn">
+                        Admin Login
+                    </a>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- Footer -->
+    <footer>
+
+        <p>
+            © 2026 LPU RoomConnect |
+            Campus Room Availability System
+        </p>
+
+    </footer>
+
+</body>
+</html>
