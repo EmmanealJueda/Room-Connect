@@ -10,9 +10,28 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "roomconnect-development-key")
 
-DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "roomconnect.db")
+# ==========================================
+# SECURITY CONFIGURATION
+# ==========================================
+
+app.secret_key = os.environ.get("SECRET_KEY")
+
+if not app.secret_key:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is required."
+    )
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("APP_ENV") == "production"
+)
+
+DATABASE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "roomconnect.db"
+)
 
 
 # ==========================================
@@ -29,7 +48,9 @@ def get_db_connection():
 def get_columns(conn, table):
     return [
         row["name"]
-        for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+        for row in conn.execute(
+            f"PRAGMA table_info({table})"
+        ).fetchall()
     ]
 
 
@@ -98,8 +119,7 @@ def init_db():
         )
     """)
 
-    # SAFE MIGRATIONS FOR EXISTING DATABASES
-
+    # EXISTING DATABASE MIGRATIONS
     add_column_if_missing(conn, "blocks", "building_number", "TEXT")
     add_column_if_missing(conn, "blocks", "description", "TEXT")
 
@@ -117,7 +137,7 @@ def init_db():
     add_column_if_missing(conn, "booking_requests", "status", "TEXT DEFAULT 'Pending'")
     add_column_if_missing(conn, "booking_requests", "created_at", "TEXT")
 
-    # TIMETABLE / CLASS SCHEDULE
+    # CLASS SCHEDULE
     conn.execute("""
         CREATE TABLE IF NOT EXISTS class_schedule (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -135,28 +155,27 @@ def init_db():
         )
     """)
 
-    # DEMO USERS: created only if they do not already exist.
-    demo_users = [
-        ("Admin", "admin@roomconnect.com", "Admin123", "admin"),
-        ("Faculty", "faculty@roomconnect.com", "Faculty123", "faculty"),
-        ("Student", "student@roomconnect.com", "Student123", "student")
-    ]
+    # CREATE FIRST ADMIN FROM ENVIRONMENT VARIABLES
+    # No admin password is stored in this source file.
 
-    for name, email, password, role in demo_users:
-        existing = conn.execute(
-            "SELECT id FROM users WHERE email = ?",
-            (email,)
+    admin_name = os.environ.get("ADMIN_NAME", "").strip()
+    admin_email = os.environ.get("ADMIN_EMAIL", "").strip().lower()
+    admin_password = os.environ.get("ADMIN_PASSWORD", "")
+
+    if admin_email and admin_password:
+        existing_admin = conn.execute(
+            "SELECT id FROM users WHERE LOWER(email) = ?",
+            (admin_email,)
         ).fetchone()
 
-        if not existing:
+        if not existing_admin:
             conn.execute("""
                 INSERT INTO users (name, email, password, role)
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, 'admin')
             """, (
-                name,
-                email,
-                generate_password_hash(password),
-                role
+                admin_name or "Administrator",
+                admin_email,
+                generate_password_hash(admin_password)
             ))
 
     conn.commit()
@@ -184,7 +203,10 @@ def role_required(role):
                 return redirect(url_for("login"))
 
             if session.get("role") != role:
-                flash("You are not authorized to access that page.", "error")
+                flash(
+                    "You are not authorized to access that page.",
+                    "error"
+                )
                 return redirect(url_for("dashboard"))
 
             return function(*args, **kwargs)
@@ -208,7 +230,6 @@ def home():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
@@ -216,14 +237,18 @@ def login():
 
         conn = get_db_connection()
         user = conn.execute(
-            "SELECT * FROM users WHERE LOWER(email) = ?", (email,)
+            "SELECT * FROM users WHERE LOWER(email) = ?",
+            (email,)
         ).fetchone()
         conn.close()
 
         valid = False
+
         if user and user["role"] == role:
             try:
-                valid = check_password_hash(user["password"], password)
+                valid = check_password_hash(
+                    user["password"], password
+                )
             except (ValueError, TypeError):
                 valid = False
 
@@ -233,6 +258,7 @@ def login():
             session["name"] = user["name"]
             session["email"] = user["email"]
             session["role"] = user["role"]
+
             return redirect(url_for("dashboard"))
 
         flash("Invalid email, password or role.", "error")
@@ -243,7 +269,6 @@ def login():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-
     role = session.get("role")
 
     if role == "admin":
@@ -272,7 +297,6 @@ def logout():
 @app.route("/admin/dashboard")
 @admin_required
 def admin_dashboard():
-
     conn = get_db_connection()
 
     total_blocks = conn.execute(
@@ -310,26 +334,45 @@ def admin_dashboard():
 @app.route("/admin/blocks", methods=["GET", "POST"])
 @admin_required
 def manage_blocks():
-
     conn = get_db_connection()
 
     if request.method == "POST":
-        building_number = request.form.get("building_number", "").strip()
-        block_name = request.form.get("building_name", "").strip()
-        description = request.form.get("description", "").strip()
+        building_number = request.form.get(
+            "building_number", ""
+        ).strip()
+        block_name = request.form.get(
+            "building_name", ""
+        ).strip()
+        description = request.form.get(
+            "description", ""
+        ).strip()
 
         if not building_number or not block_name:
-            flash("Building number and building name are required.", "error")
+            flash(
+                "Building number and building name are required.",
+                "error"
+            )
         else:
             try:
                 conn.execute("""
-                    INSERT INTO blocks (building_number, block_name, description)
+                    INSERT INTO blocks
+                    (building_number, block_name, description)
                     VALUES (?, ?, ?)
-                """, (building_number, block_name, description))
+                """, (
+                    building_number,
+                    block_name,
+                    description
+                ))
                 conn.commit()
-                flash("Academic block added successfully.", "success")
+                flash(
+                    "Academic block added successfully.",
+                    "success"
+                )
             except sqlite3.IntegrityError:
-                flash("A building with this name already exists.", "error")
+                flash(
+                    "A building with this name already exists.",
+                    "error"
+                )
 
         conn.close()
         return redirect(url_for("manage_blocks"))
@@ -337,21 +380,19 @@ def manage_blocks():
     blocks = conn.execute("""
         SELECT
             b.*,
-            (SELECT COUNT(*) FROM rooms r WHERE r.block_id = b.id)
-            AS room_count
+            (SELECT COUNT(*) FROM rooms r
+             WHERE r.block_id = b.id) AS room_count
         FROM blocks b
         ORDER BY b.id DESC
     """).fetchall()
 
     conn.close()
-
     return render_template("admin_blocks.html", blocks=blocks)
 
 
 @app.route("/admin/blocks/delete/<int:block_id>", methods=["POST"])
 @admin_required
 def delete_block(block_id):
-
     conn = get_db_connection()
 
     room_count = conn.execute("""
@@ -359,9 +400,15 @@ def delete_block(block_id):
     """, (block_id,)).fetchone()[0]
 
     if room_count > 0:
-        flash("Cannot delete a block that still contains rooms.", "error")
+        flash(
+            "Cannot delete a block that still contains rooms.",
+            "error"
+        )
     else:
-        conn.execute("DELETE FROM blocks WHERE id = ?", (block_id,))
+        conn.execute(
+            "DELETE FROM blocks WHERE id = ?",
+            (block_id,)
+        )
         conn.commit()
         flash("Block deleted successfully.", "success")
 
@@ -376,13 +423,16 @@ def delete_block(block_id):
 @app.route("/admin/rooms", methods=["GET", "POST"])
 @admin_required
 def manage_rooms():
-
     conn = get_db_connection()
 
     if request.method == "POST":
-        room_number = request.form.get("room_number", "").strip()
+        room_number = request.form.get(
+            "room_number", ""
+        ).strip()
         capacity = request.form.get("capacity", "0").strip()
-        room_type = request.form.get("room_type", "Classroom").strip()
+        room_type = request.form.get(
+            "room_type", "Classroom"
+        ).strip()
         block_id = request.form.get("block_id", "").strip()
 
         try:
@@ -391,47 +441,63 @@ def manage_rooms():
             capacity = -1
 
         block = conn.execute(
-            "SELECT id FROM blocks WHERE id = ?", (block_id,)
+            "SELECT id FROM blocks WHERE id = ?",
+            (block_id,)
         ).fetchone()
 
         if not room_number or not block:
-            flash("Please enter room details and select a valid block.", "error")
+            flash(
+                "Please enter room details and select a valid block.",
+                "error"
+            )
         elif capacity < 1:
             flash("Please enter a valid room capacity.", "error")
         else:
             try:
                 conn.execute("""
-                    INSERT INTO rooms (room_number, capacity, room_type, block_id)
+                    INSERT INTO rooms
+                    (room_number, capacity, room_type, block_id)
                     VALUES (?, ?, ?, ?)
-                """, (room_number, capacity, room_type, block_id))
+                """, (
+                    room_number,
+                    capacity,
+                    room_type,
+                    block_id
+                ))
                 conn.commit()
                 flash("Room added successfully.", "success")
             except sqlite3.IntegrityError:
-                flash("That room already exists in this block.", "error")
+                flash(
+                    "That room already exists in this block.",
+                    "error"
+                )
 
         conn.close()
         return redirect(url_for("manage_rooms"))
 
     rooms = conn.execute("""
-        SELECT r.*, b.block_name AS block_name, b.building_number
+        SELECT r.*, b.block_name AS block_name,
+               b.building_number
         FROM rooms r
         LEFT JOIN blocks b ON r.block_id = b.id
         ORDER BY r.id DESC
     """).fetchall()
 
-    blocks = conn.execute(
-        "SELECT * FROM blocks ORDER BY building_number"
-    ).fetchall()
+    blocks = conn.execute("""
+        SELECT * FROM blocks ORDER BY building_number
+    """).fetchall()
 
     conn.close()
-
-    return render_template("admin_rooms.html", rooms=rooms, blocks=blocks)
+    return render_template(
+        "admin_rooms.html",
+        rooms=rooms,
+        blocks=blocks
+    )
 
 
 @app.route("/admin/rooms/delete/<int:room_id>", methods=["POST"])
 @admin_required
 def delete_room(room_id):
-
     conn = get_db_connection()
 
     booking_count = conn.execute("""
@@ -445,9 +511,16 @@ def delete_room(room_id):
     """, (room_id,)).fetchone()[0]
 
     if booking_count or schedule_count:
-        flash("This room is linked to bookings or timetable entries and cannot be deleted.", "error")
+        flash(
+            "This room is linked to bookings or timetable entries "
+            "and cannot be deleted.",
+            "error"
+        )
     else:
-        conn.execute("DELETE FROM rooms WHERE id = ?", (room_id,))
+        conn.execute(
+            "DELETE FROM rooms WHERE id = ?",
+            (room_id,)
+        )
         conn.commit()
         flash("Room deleted successfully.", "success")
 
@@ -462,11 +535,9 @@ def delete_room(room_id):
 @app.route("/admin/users", methods=["GET", "POST"])
 @admin_required
 def manage_users():
-
     conn = get_db_connection()
 
     if request.method == "POST":
-
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
@@ -474,11 +545,14 @@ def manage_users():
         section = request.form.get("section", "").strip()
         department = request.form.get("department", "").strip()
 
-        if not name or not email or not password or role not in (
-            "admin", "faculty", "student"
+        if (
+            not name or not email or not password
+            or role not in ("admin", "faculty", "student")
         ):
-            flash("Please fill in all required user details.", "error")
-
+            flash(
+                "Please fill in all required user details.",
+                "error"
+            )
         else:
             try:
                 conn.execute("""
@@ -498,7 +572,10 @@ def manage_users():
                 flash("User added successfully.", "success")
 
             except sqlite3.IntegrityError:
-                flash("An account with this email already exists.", "error")
+                flash(
+                    "An account with this email already exists.",
+                    "error"
+                )
 
         conn.close()
         return redirect(url_for("manage_users"))
@@ -508,32 +585,42 @@ def manage_users():
     """).fetchall()
 
     conn.close()
-
     return render_template("admin_users.html", users=users)
 
 
 @app.route("/admin/users/delete/<int:user_id>", methods=["POST"])
 @admin_required
 def delete_user(user_id):
-
     if user_id == session.get("user_id"):
-        flash("You cannot delete your own active account.", "error")
+        flash(
+            "You cannot delete your own active account.",
+            "error"
+        )
         return redirect(url_for("manage_users"))
 
     conn = get_db_connection()
 
     booking_count = conn.execute("""
-        SELECT COUNT(*) FROM booking_requests WHERE user_id = ?
+        SELECT COUNT(*) FROM booking_requests
+        WHERE user_id = ?
     """, (user_id,)).fetchone()[0]
 
     schedule_count = conn.execute("""
-        SELECT COUNT(*) FROM class_schedule WHERE faculty_id = ?
+        SELECT COUNT(*) FROM class_schedule
+        WHERE faculty_id = ?
     """, (user_id,)).fetchone()[0]
 
     if booking_count or schedule_count:
-        flash("This user has linked bookings or timetable entries and cannot be deleted.", "error")
+        flash(
+            "This user has linked bookings or timetable entries "
+            "and cannot be deleted.",
+            "error"
+        )
     else:
-        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.execute(
+            "DELETE FROM users WHERE id = ?",
+            (user_id,)
+        )
         conn.commit()
         flash("User deleted successfully.", "success")
 
@@ -545,9 +632,10 @@ def delete_user(user_id):
 # BOOKING HELPERS
 # ==========================================
 
-def has_room_conflict(conn, room_id, booking_date, start_time, end_time,
-                      exclude_booking_id=None):
-
+def has_room_conflict(
+    conn, room_id, booking_date, start_time, end_time,
+    exclude_booking_id=None
+):
     query = """
         SELECT id FROM booking_requests
         WHERE room_id = ?
@@ -557,13 +645,20 @@ def has_room_conflict(conn, room_id, booking_date, start_time, end_time,
         AND end_time > ?
     """
 
-    params = [room_id, booking_date, end_time, start_time]
+    params = [
+        room_id,
+        booking_date,
+        end_time,
+        start_time
+    ]
 
     if exclude_booking_id is not None:
         query += " AND id != ?"
         params.append(exclude_booking_id)
 
-    booking_conflict = conn.execute(query, params).fetchone()
+    booking_conflict = conn.execute(
+        query, params
+    ).fetchone()
 
     if booking_conflict:
         return True
@@ -576,7 +671,9 @@ def has_room_conflict(conn, room_id, booking_date, start_time, end_time,
         AND end_time > ?
     """, (
         room_id,
-        datetime.strptime(booking_date, "%Y-%m-%d").strftime("%A"),
+        datetime.strptime(
+            booking_date, "%Y-%m-%d"
+        ).strftime("%A"),
         end_time,
         start_time
     )).fetchone()
@@ -586,10 +683,8 @@ def has_room_conflict(conn, room_id, booking_date, start_time, end_time,
 
 def get_room_list(conn, building_id=None):
     query = """
-        SELECT
-            r.*,
-            b.building_number,
-            b.block_name AS block_name
+        SELECT r.*, b.building_number,
+               b.block_name AS block_name
         FROM rooms r
         LEFT JOIN blocks b ON r.block_id = b.id
     """
@@ -605,12 +700,14 @@ def get_room_list(conn, building_id=None):
     return conn.execute(query, params).fetchall()
 
 
-def room_is_available(conn, room_id, booking_date, start_time, end_time):
+def room_is_available(
+    conn, room_id, booking_date, start_time, end_time
+):
     if not booking_date or not start_time or not end_time:
         return None
 
     try:
-        selected_date = datetime.strptime(booking_date, "%Y-%m-%d").date()
+        datetime.strptime(booking_date, "%Y-%m-%d")
         datetime.strptime(start_time, "%H:%M")
         datetime.strptime(end_time, "%H:%M")
     except ValueError:
@@ -620,7 +717,11 @@ def room_is_available(conn, room_id, booking_date, start_time, end_time):
         return None
 
     return not has_room_conflict(
-        conn, room_id, booking_date, start_time, end_time
+        conn,
+        room_id,
+        booking_date,
+        start_time,
+        end_time
     )
 
 
@@ -631,12 +732,12 @@ def room_is_available(conn, room_id, booking_date, start_time, end_time):
 @app.route("/faculty/dashboard")
 @faculty_required
 def faculty_dashboard():
-
     conn = get_db_connection()
     faculty_id = session["user_id"]
 
     total_bookings = conn.execute("""
-        SELECT COUNT(*) FROM booking_requests WHERE user_id = ?
+        SELECT COUNT(*) FROM booking_requests
+        WHERE user_id = ?
     """, (faculty_id,)).fetchone()[0]
 
     pending_bookings = conn.execute("""
@@ -666,28 +767,37 @@ def faculty_dashboard():
 @app.route("/faculty/book-room", methods=["GET", "POST"])
 @faculty_required
 def faculty_book_room():
-
     conn = get_db_connection()
 
     if request.method == "POST":
-
         room_id = request.form.get("room_id", "").strip()
         purpose = request.form.get("purpose", "").strip()
-        booking_date = request.form.get("booking_date", "").strip()
-        start_time = request.form.get("start_time", "").strip()
+        booking_date = request.form.get(
+            "booking_date", ""
+        ).strip()
+        start_time = request.form.get(
+            "start_time", ""
+        ).strip()
         end_time = request.form.get("end_time", "").strip()
-        description = request.form.get("description", "").strip()
+        description = request.form.get(
+            "description", ""
+        ).strip()
 
         if description:
             purpose = f"{purpose} - {description}"
 
         room = conn.execute(
-            "SELECT id FROM rooms WHERE id = ?", (room_id,)
+            "SELECT id FROM rooms WHERE id = ?",
+            (room_id,)
         ).fetchone()
 
-        valid_date = valid_time = False
+        valid_date = False
+        valid_time = False
+
         try:
-            selected_date = datetime.strptime(booking_date, "%Y-%m-%d").date()
+            selected_date = datetime.strptime(
+                booking_date, "%Y-%m-%d"
+            ).date()
             valid_date = selected_date >= date.today()
         except ValueError:
             pass
@@ -700,40 +810,64 @@ def faculty_book_room():
             pass
 
         if not room or not purpose or not booking_date:
-            flash("Please complete all required booking details.", "error")
-
+            flash(
+                "Please complete all required booking details.",
+                "error"
+            )
         elif not valid_date:
-            flash("Please select a valid current or future date.", "error")
-
+            flash(
+                "Please select a valid current or future date.",
+                "error"
+            )
         elif not valid_time:
-            flash("Enter valid times; end time must be later than start time.", "error")
-
-        elif has_room_conflict(conn, room_id, booking_date, start_time, end_time):
-            flash("This room is already occupied during that time.", "error")
-
+            flash(
+                "Enter valid times; end time must be later than start time.",
+                "error"
+            )
+        elif has_room_conflict(
+            conn, room_id, booking_date, start_time, end_time
+        ):
+            flash(
+                "This room is already occupied during that time.",
+                "error"
+            )
         else:
             conn.execute("""
                 INSERT INTO booking_requests
                 (user_id, room_id, purpose, booking_date,
                  start_time, end_time, status)
                 VALUES (?, ?, ?, ?, ?, ?, 'Pending')
-            """, (session["user_id"], room_id, purpose,
-                  booking_date, start_time, end_time))
+            """, (
+                session["user_id"],
+                room_id,
+                purpose,
+                booking_date,
+                start_time,
+                end_time
+            ))
 
             conn.commit()
             conn.close()
-            flash("Your booking request has been submitted.", "success")
+
+            flash(
+                "Your booking request has been submitted.",
+                "success"
+            )
             return redirect(url_for("faculty_my_bookings"))
 
-    blocks = conn.execute(
-        "SELECT * FROM blocks ORDER BY building_number"
-    ).fetchall()
+    blocks = conn.execute("""
+        SELECT * FROM blocks ORDER BY building_number
+    """).fetchall()
 
     rooms = get_room_list(conn)
 
     conn.close()
 
-    return render_template("faculty_book_room.html", blocks=blocks, rooms=rooms)
+    return render_template(
+        "faculty_book_room.html",
+        blocks=blocks,
+        rooms=rooms
+    )
 
 
 # ==========================================
@@ -743,15 +877,12 @@ def faculty_book_room():
 @app.route("/faculty/my-bookings")
 @faculty_required
 def faculty_my_bookings():
-
     conn = get_db_connection()
 
     bookings = conn.execute("""
-        SELECT
-            br.*,
-            r.room_number,
-            b.building_number,
-            b.block_name AS block_name
+        SELECT br.*, r.room_number,
+               b.building_number,
+               b.block_name AS block_name
         FROM booking_requests br
         LEFT JOIN rooms r ON br.room_id = r.id
         LEFT JOIN blocks b ON r.block_id = b.id
@@ -774,15 +905,12 @@ def faculty_my_bookings():
 @app.route("/faculty/timetable")
 @faculty_required
 def faculty_timetable():
-
     conn = get_db_connection()
 
     timetable = conn.execute("""
-        SELECT
-            cs.*,
-            r.room_number,
-            b.building_number,
-            b.block_name AS block_name
+        SELECT cs.*, r.room_number,
+               b.building_number,
+               b.block_name AS block_name
         FROM class_schedule cs
         LEFT JOIN rooms r ON cs.room_id = r.id
         LEFT JOIN blocks b ON r.block_id = b.id
@@ -816,20 +944,26 @@ def faculty_timetable():
 @app.route("/faculty/room-availability")
 @faculty_required
 def faculty_room_availability():
-
     conn = get_db_connection()
 
-    building_id = request.args.get("building_id", "").strip()
-    booking_date = request.args.get("booking_date", "").strip()
-    start_time = request.args.get("start_time", "").strip()
-    end_time = request.args.get("end_time", "").strip()
+    building_id = request.args.get(
+        "building_id", ""
+    ).strip()
+    booking_date = request.args.get(
+        "booking_date", ""
+    ).strip()
+    start_time = request.args.get(
+        "start_time", ""
+    ).strip()
+    end_time = request.args.get(
+        "end_time", ""
+    ).strip()
 
     blocks = conn.execute("""
         SELECT * FROM blocks ORDER BY building_number
     """).fetchall()
 
     rooms = get_room_list(conn, building_id)
-
     filtered_rooms = []
 
     for room in rooms:
@@ -865,11 +999,9 @@ def faculty_room_availability():
 @app.route("/admin/booking-requests", methods=["GET", "POST"])
 @admin_required
 def booking_requests():
-
     conn = get_db_connection()
 
     if request.method == "POST":
-
         booking_id = request.form.get(
             "booking_id",
             request.form.get("id", "")
@@ -882,7 +1014,6 @@ def booking_requests():
 
         if action not in ("Approved", "Rejected"):
             flash("Invalid booking action.", "error")
-
         else:
             booking = conn.execute("""
                 SELECT * FROM booking_requests WHERE id = ?
@@ -890,10 +1021,11 @@ def booking_requests():
 
             if not booking:
                 flash("Booking request not found.", "error")
-
             elif booking["status"] != "Pending":
-                flash("This booking request has already been processed.", "error")
-
+                flash(
+                    "This booking request has already been processed.",
+                    "error"
+                )
             elif action == "Approved" and has_room_conflict(
                 conn,
                 booking["room_id"],
@@ -902,8 +1034,10 @@ def booking_requests():
                 booking["end_time"],
                 exclude_booking_id=booking["id"]
             ):
-                flash("Cannot approve: this room is already occupied.", "error")
-
+                flash(
+                    "Cannot approve: this room is already occupied.",
+                    "error"
+                )
             else:
                 conn.execute("""
                     UPDATE booking_requests
@@ -912,19 +1046,21 @@ def booking_requests():
                 """, (action, booking_id))
 
                 conn.commit()
-                flash(f"Booking request {action.lower()} successfully.", "success")
+                flash(
+                    f"Booking request {action.lower()} successfully.",
+                    "success"
+                )
 
         conn.close()
         return redirect(url_for("booking_requests"))
 
     bookings = conn.execute("""
-        SELECT
-            br.*,
-            u.name AS faculty_name,
-            u.email AS faculty_email,
-            r.room_number,
-            b.building_number,
-            b.block_name AS block_name
+        SELECT br.*,
+               u.name AS faculty_name,
+               u.email AS faculty_email,
+               r.room_number,
+               b.building_number,
+               b.block_name AS block_name
         FROM booking_requests br
         LEFT JOIN users u ON br.user_id = u.id
         LEFT JOIN rooms r ON br.room_id = r.id
@@ -953,7 +1089,6 @@ def booking_requests():
 @app.route("/student/dashboard")
 @student_required
 def student_dashboard():
-
     conn = get_db_connection()
 
     student = conn.execute("""
@@ -980,7 +1115,6 @@ def student_dashboard():
 @app.route("/student/timetable")
 @student_required
 def student_timetable():
-
     conn = get_db_connection()
 
     student = conn.execute("""
@@ -995,12 +1129,11 @@ def student_timetable():
 
     if section:
         timetable = conn.execute("""
-            SELECT
-                cs.*,
-                u.name AS faculty_name,
-                r.room_number,
-                b.building_number,
-                b.block_name AS block_name
+            SELECT cs.*,
+                   u.name AS faculty_name,
+                   r.room_number,
+                   b.building_number,
+                   b.block_name AS block_name
             FROM class_schedule cs
             LEFT JOIN users u ON cs.faculty_id = u.id
             LEFT JOIN rooms r ON cs.room_id = r.id
@@ -1038,20 +1171,26 @@ def student_timetable():
 @app.route("/student/room-availability")
 @student_required
 def student_room_availability():
-
     conn = get_db_connection()
 
-    building_id = request.args.get("building_id", "").strip()
-    booking_date = request.args.get("booking_date", "").strip()
-    start_time = request.args.get("start_time", "").strip()
-    end_time = request.args.get("end_time", "").strip()
+    building_id = request.args.get(
+        "building_id", ""
+    ).strip()
+    booking_date = request.args.get(
+        "booking_date", ""
+    ).strip()
+    start_time = request.args.get(
+        "start_time", ""
+    ).strip()
+    end_time = request.args.get(
+        "end_time", ""
+    ).strip()
 
     blocks = conn.execute("""
         SELECT * FROM blocks ORDER BY building_number
     """).fetchall()
 
     rooms = get_room_list(conn, building_id)
-
     filtered_rooms = []
 
     for room in rooms:
@@ -1084,32 +1223,47 @@ def student_room_availability():
 # ADMIN - MANAGE TIMETABLE
 # ==========================================
 
-DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday",
-        "Friday", "Saturday", "Sunday"]
+DAYS = [
+    "Monday", "Tuesday", "Wednesday", "Thursday",
+    "Friday", "Saturday", "Sunday"
+]
 
 
 @app.route("/admin/schedule", methods=["GET", "POST"])
 @admin_required
 def manage_schedule():
-
     conn = get_db_connection()
 
     if request.method == "POST":
         section = request.form.get("section", "").strip()
-        department = request.form.get("department", "").strip()
+        department = request.form.get(
+            "department", ""
+        ).strip()
         day = request.form.get("day", "").strip()
         subject = request.form.get("subject", "").strip()
-        faculty_id = request.form.get("faculty_id", "").strip()
+        faculty_id = request.form.get(
+            "faculty_id", ""
+        ).strip()
         room_id = request.form.get("room_id", "").strip()
-        start_time = request.form.get("start_time", "").strip()
-        end_time = request.form.get("end_time", "").strip()
+        start_time = request.form.get(
+            "start_time", ""
+        ).strip()
+        end_time = request.form.get(
+            "end_time", ""
+        ).strip()
 
-        room = conn.execute("SELECT id FROM rooms WHERE id = ?", (room_id,)).fetchone()
-        faculty = conn.execute(
-            "SELECT id FROM users WHERE id = ? AND role = 'faculty'", (faculty_id,)
+        room = conn.execute(
+            "SELECT id FROM rooms WHERE id = ?",
+            (room_id,)
         ).fetchone()
 
+        faculty = conn.execute("""
+            SELECT id FROM users
+            WHERE id = ? AND role = 'faculty'
+        """, (faculty_id,)).fetchone()
+
         times_ok = False
+
         try:
             datetime.strptime(start_time, "%H:%M")
             datetime.strptime(end_time, "%H:%M")
@@ -1117,27 +1271,52 @@ def manage_schedule():
         except ValueError:
             pass
 
-        if not section or not subject or day not in DAYS or not room or not faculty:
-            flash("Please fill in all timetable details correctly.", "error")
+        if (
+            not section or not subject
+            or day not in DAYS or not room or not faculty
+        ):
+            flash(
+                "Please fill in all timetable details correctly.",
+                "error"
+            )
         elif not times_ok:
-            flash("End time must be later than start time.", "error")
+            flash(
+                "End time must be later than start time.",
+                "error"
+            )
         else:
             clash = conn.execute("""
                 SELECT id FROM class_schedule
                 WHERE room_id = ? AND day = ?
                 AND start_time < ? AND end_time > ?
-            """, (room_id, day, end_time, start_time)).fetchone()
+            """, (
+                room_id, day, end_time, start_time
+            )).fetchone()
 
             if clash:
-                flash("That room already has a class at this time.", "error")
+                flash(
+                    "That room already has a class at this time.",
+                    "error"
+                )
             else:
                 conn.execute("""
                     INSERT INTO class_schedule
-                    (section, department, day, subject, faculty_id, room_id,
-                     start_time, end_time, academic_session)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Current Session')
-                """, (section, department, day, subject, faculty_id,
-                      room_id, start_time, end_time))
+                    (section, department, day, subject,
+                     faculty_id, room_id, start_time,
+                     end_time, academic_session)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+                            'Current Session')
+                """, (
+                    section,
+                    department,
+                    day,
+                    subject,
+                    faculty_id,
+                    room_id,
+                    start_time,
+                    end_time
+                ))
+
                 conn.commit()
                 flash("Timetable entry added.", "success")
 
@@ -1145,7 +1324,9 @@ def manage_schedule():
         return redirect(url_for("manage_schedule"))
 
     entries = conn.execute("""
-        SELECT cs.*, u.name AS faculty_name, r.room_number,
+        SELECT cs.*,
+               u.name AS faculty_name,
+               r.room_number,
                b.building_number
         FROM class_schedule cs
         LEFT JOIN users u ON cs.faculty_id = u.id
@@ -1154,24 +1335,38 @@ def manage_schedule():
         ORDER BY cs.section, cs.start_time
     """).fetchall()
 
-    faculty = conn.execute(
-        "SELECT id, name FROM users WHERE role = 'faculty' ORDER BY name"
-    ).fetchall()
+    faculty = conn.execute("""
+        SELECT id, name FROM users
+        WHERE role = 'faculty'
+        ORDER BY name
+    """).fetchall()
+
     rooms = get_room_list(conn)
 
     conn.close()
 
-    return render_template("admin_schedule.html", entries=entries,
-                           faculty=faculty, rooms=rooms, days=DAYS)
+    return render_template(
+        "admin_schedule.html",
+        entries=entries,
+        faculty=faculty,
+        rooms=rooms,
+        days=DAYS
+    )
 
 
 @app.route("/admin/schedule/delete/<int:entry_id>", methods=["POST"])
 @admin_required
 def delete_schedule(entry_id):
     conn = get_db_connection()
-    conn.execute("DELETE FROM class_schedule WHERE id = ?", (entry_id,))
+
+    conn.execute(
+        "DELETE FROM class_schedule WHERE id = ?",
+        (entry_id,)
+    )
+
     conn.commit()
     conn.close()
+
     flash("Timetable entry deleted.", "success")
     return redirect(url_for("manage_schedule"))
 
@@ -1189,6 +1384,13 @@ def page_not_found(error):
 # START APPLICATION
 # ==========================================
 
+# Initialize the database when the application starts.
+# This also works when using a production WSGI server.
+
+init_db()
+
+
 if __name__ == "__main__":
-    init_db()
-    app.run(debug=os.environ.get("FLASK_DEBUG") == "1")
+    app.run(
+        debug=os.environ.get("FLASK_DEBUG") == "1"
+    )
