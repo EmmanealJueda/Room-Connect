@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Timetable | LPU RoomConnect</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<header>
+    <div class="logo">LPU <span>RoomConnect</span></div>
+    <nav>
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+</header>
+<main class="admin-page">
+    {% include "_flash.html" %}
+
+    <div class="page-heading">
+        <h1>Manage Timetable</h1>
+        <p>Assign classes to sections, faculty members and rooms.</p>
+    </div>
+
+    <div class="management-layout">
+        <section class="management-form">
+            <h2>Add Class</h2>
+
+            <form method="POST">
+                <div class="form-group">
+                    <label for="section">Section</label>
+                    <input type="text" id="section" name="section" placeholder="Example: K23AB" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="department">Department</label>
+                    <input type="text" id="department" name="department" placeholder="Example: Computer Science">
+                </div>
+
+                <div class="form-group">
+                    <label for="subject">Subject</label>
+                    <input type="text" id="subject" name="subject" placeholder="Subject name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="day">Day</label>
+                    <select id="day" name="day" required>
+                        <option value="">Select day</option>
+                        {% for d in days %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="faculty_id">Faculty</label>
+                    <select id="faculty_id" name="faculty_id" required>
+                        <option value="">Select faculty</option>
+                        {% for f in faculty %}<option value="{{ f.id }}">{{ f.name }}</option>{% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="room_id">Room</label>
+                    <select id="room_id" name="room_id" required>
+                        <option value="">Select room</option>
+                        {% for r in rooms %}
+                        <option value="{{ r.id }}">{{ r.building_number }} - {{ r.room_number }} ({{ r.room_type }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="start_time">Start Time</label>
+                    <input type="time" id="start_time" name="start_time" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="end_time">End Time</label>
+                    <input type="time" id="end_time" name="end_time" required>
+                </div>
+
+                <button type="submit" class="management-button">Add Class</button>
+            </form>
+        </section>
+
+        <section class="management-list">
+            <div class="list-heading">
+                <h2>Scheduled Classes</h2>
+                <span>{{ entries|length }} Classes</span>
+            </div>
+
+            {% if entries %}
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr><th>Section</th><th>Day</th><th>Time</th><th>Subject</th><th>Faculty</th><th>Room</th><th>Action</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for e in entries %}
+                        <tr>
+                            <td>{{ e.section }}</td>
+                            <td>{{ e.day }}</td>
+                            <td>{{ e.start_time }} - {{ e.end_time }}</td>
+                            <td>{{ e.subject }}</td>
+                            <td>{{ e.faculty_name or "—" }}</td>
+                            <td>{{ e.building_number }} - {{ e.room_number }}</td>
+                            <td>
+                                <form method="POST"
+                                      action="{{ url_for('delete_schedule', entry_id=e.id) }}"
+                                      onsubmit="return confirm('Delete this class?');">
+                                    <button type="submit" class="delete-button">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="empty-message">No classes have been scheduled yet.</p>
+            {% endif %}
+        </section>
+    </div>
+</main>
+
+</body>
+</html>

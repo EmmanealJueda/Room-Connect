@@ -1,0 +1,106 @@
+
+{% extends "base.html" %}
+
+{% block title %}Room Availability | LPU RoomConnect{% endblock %}
+
+{% block content %}
+<section class="faculty-page">
+
+    <div class="faculty-page-heading">
+        <span class="faculty-label">FACULTY PORTAL</span>
+        <h1>Room Availability</h1>
+        <p>Find classrooms that may be available for your requirements.</p>
+    </div>
+
+    <div class="faculty-filter-card">
+        <h2>Find a Classroom</h2>
+
+        <form method="GET" action="{{ url_for('faculty_room_availability') }}"
+              class="faculty-filter-form">
+
+            <div class="faculty-form-group">
+                <label for="building">Academic Block</label>
+                <select name="building_id" id="building">
+                    <option value="">All Blocks</option>
+                    {% for block in blocks|default([]) %}
+                    <option value="{{ block.id }}"
+                        {% if selected_building|string == block.id|string %}selected{% endif %}>
+                        {{ block.building_number }} - {{ block.block_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="faculty-form-group">
+                <label for="date">Date</label>
+                <input type="date" name="booking_date" id="date"
+                       value="{{ selected_date|default('') }}">
+            </div>
+
+            <div class="faculty-form-group">
+                <label for="start_time">Start Time</label>
+                <input type="time" name="start_time" id="start_time"
+                       value="{{ selected_start|default('') }}">
+            </div>
+
+            <div class="faculty-form-group">
+                <label for="end_time">End Time</label>
+                <input type="time" name="end_time" id="end_time"
+                       value="{{ selected_end|default('') }}">
+            </div>
+
+            <button type="submit" class="faculty-primary-btn">Search Rooms</button>
+        </form>
+    </div>
+
+    <div class="faculty-table-card">
+        <div class="faculty-table-heading">
+            <div>
+                <h2>Classrooms</h2>
+                <p>Room results based on your search.</p>
+            </div>
+        </div>
+
+        <div class="faculty-table-wrapper">
+            <table class="faculty-table">
+                <thead>
+                    <tr>
+                        <th>Building</th>
+                        <th>Room Number</th>
+                        <th>Room Type</th>
+                        <th>Capacity</th>
+                        <th>Availability</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for room in rooms|default([]) %}
+                    <tr>
+                        <td>{{ room.building_number|default('—') }}</td>
+                        <td>{{ room.room_number }}</td>
+                        <td>{{ room.room_type|default('Classroom') }}</td>
+                        <td>{{ room.capacity|default('—') }}</td>
+                        <td>
+                            {% if room.available is none %}
+                            <span class="faculty-status pending">Check schedule</span>
+                            {% elif room.available %}
+                            <span class="faculty-status approved">Available</span>
+                            {% else %}
+                            <span class="faculty-status rejected">Occupied</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="faculty-empty">
+                            No rooms found. Try changing your search filters.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</section>
+{% endblock %}

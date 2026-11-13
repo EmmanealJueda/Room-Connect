@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}My Timetable | LPU RoomConnect{% endblock %}
+
+{% block content %}
+<section class="faculty-page">
+
+    <div class="faculty-page-heading">
+        <span class="faculty-label">FACULTY PORTAL</span>
+        <h1>My Timetable</h1>
+        <p>Your scheduled classes and assigned classrooms.</p>
+    </div>
+
+    <div class="faculty-table-card">
+        <div class="faculty-table-heading">
+            <div>
+                <h2>Weekly Class Schedule</h2>
+                <p>Classes assigned to you by the administration.</p>
+            </div>
+        </div>
+
+        <div class="faculty-table-wrapper">
+            <table class="faculty-table">
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Time</th>
+                        <th>Subject</th>
+                        <th>Section</th>
+                        <th>Building</th>
+                        <th>Room</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for item in timetable|default([]) %}
+                    <tr>
+                        <td>{{ item.day }}</td>
+                        <td>{{ item.start_time }} - {{ item.end_time }}</td>
+                        <td>{{ item.subject }}</td>
+                        <td>{{ item.section }}</td>
+                        <td>{{ item.building_number|default('—') }}</td>
+                        <td>{{ item.room_number|default('—') }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="faculty-empty">
+                            No classes have been assigned to you yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</section>
+{% endblock %}

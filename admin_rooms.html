@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Rooms | LPU RoomConnect</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<header>
+    <div class="logo">LPU <span>RoomConnect</span></div>
+    <nav>
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+</header>
+<main class="admin-page">
+    {% include "_flash.html" %}
+
+    <div class="page-heading">
+        <h1>Manage Rooms</h1>
+        <p>Add classrooms and manage rooms in registered academic blocks.</p>
+    </div>
+
+    <div class="management-layout">
+        <section class="management-form">
+            <h2>Add New Room</h2>
+
+            <form method="POST">
+                <div class="form-group">
+                    <label for="room_number">Room Number</label>
+                    <input type="text" id="room_number" name="room_number"
+                           placeholder="Example: 101" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="block_id">Academic Block</label>
+                    <select id="block_id" name="block_id" required>
+                        <option value="">Select a block</option>
+                        {% for block in blocks %}
+                        <option value="{{ block.id }}">
+                            {{ block.building_number }} - {{ block.block_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="capacity">Room Capacity</label>
+                    <input type="number" id="capacity" name="capacity"
+                           min="1" placeholder="Example: 60" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="room_type">Room Type</label>
+                    <select id="room_type" name="room_type" required>
+                        <option value="">Select room type</option>
+                        <option value="Classroom">Classroom</option>
+                        <option value="Lab">Computer Lab</option>
+                        <option value="Seminar Hall">Seminar Hall</option>
+                        <option value="Lecture Hall">Lecture Hall</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="management-button">Add Room</button>
+            </form>
+        </section>
+
+        <section class="management-list">
+            <div class="list-heading">
+                <h2>Registered Rooms</h2>
+                <span>{{ rooms|length }} Rooms</span>
+            </div>
+
+            {% if rooms %}
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Room</th><th>Block</th><th>Capacity</th><th>Type</th><th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for room in rooms %}
+                        <tr>
+                            <td>{{ room.room_number }}</td>
+                            <td>{{ room.building_number }} - {{ room.block_name }}</td>
+                            <td>{{ room.capacity }}</td>
+                            <td>{{ room.room_type }}</td>
+                            <td>
+                                <form method="POST"
+                                      action="{{ url_for('delete_room', room_id=room.id) }}"
+                                      onsubmit="return confirm('Delete this room?');">
+                                    <button type="submit" class="delete-button">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="empty-message">No rooms have been added yet.</p>
+            {% endif %}
+        </section>
+    </div>
+</main>
+
+</body>
+</html>

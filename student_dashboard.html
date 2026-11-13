@@ -1,0 +1,78 @@
+
+{% extends "base.html" %}
+
+{% block title %}Student Dashboard | LPU RoomConnect{% endblock %}
+
+{% block content %}
+<section class="student-page">
+
+    <div class="student-welcome">
+        <div>
+            <span class="student-label">STUDENT PORTAL</span>
+            <h1>Welcome, {{ session.get('name', 'Student') }}</h1>
+            <p>View your class schedule and classroom information in one place.</p>
+        </div>
+        <div class="student-welcome-icon">🎓</div>
+    </div>
+
+    <div class="student-info-grid">
+        <div class="student-info-card">
+            <span class="student-info-icon">👤</span>
+            <div>
+                <p>Student Name</p>
+                <h3>{{ session.get('name', 'Student') }}</h3>
+            </div>
+        </div>
+
+        <div class="student-info-card">
+            <span class="student-info-icon">🏫</span>
+            <div>
+                <p>Section</p>
+                <h3>{{ section|default('Not Assigned') }}</h3>
+            </div>
+        </div>
+
+        <div class="student-info-card">
+            <span class="student-info-icon">📚</span>
+            <div>
+                <p>Department</p>
+                <h3>{{ department|default('Not Assigned') }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="student-section-heading">
+        <h2>Student Services</h2>
+        <p>Access your academic information.</p>
+    </div>
+
+    <div class="student-action-grid">
+
+        <a href="{{ url_for('student_timetable') }}"
+           class="student-action-card">
+            <div class="student-action-icon">🗓️</div>
+            <h3>My Timetable</h3>
+            <p>View your section's weekly timetable, subjects, faculty and classrooms.</p>
+            <span>View timetable →</span>
+        </a>
+
+        <a href="{{ url_for('student_room_availability') }}"
+           class="student-action-card">
+            <div class="student-action-icon">🔍</div>
+            <h3>Room Availability</h3>
+            <p>Check classroom information and room availability.</p>
+            <span>Explore rooms →</span>
+        </a>
+
+    </div>
+
+    <div class="student-notice">
+        <span>ℹ️</span>
+        <div>
+            <h3>Stay Updated</h3>
+            <p>Your timetable and classroom assignments will be updated when changes are approved by the administration.</p>
+        </div>
+    </div>
+
+</section>
+{% endblock %}

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | LPU RoomConnect</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="login-page">
+
+    <header>
+        <div class="logo">LPU <span>RoomConnect</span></div>
+        <nav>
+            <a href="/">Home</a>
+        </nav>
+    </header>
+
+    <main class="login-container">
+
+        <div class="login-box">
+
+            <h1>Welcome Back!</h1>
+            <p class="login-subtitle">Sign in to access your RoomConnect account.</p>
+
+            <form action="{{ url_for('login') }}" method="POST">
+
+                <label for="role">Login As</label>
+                <select id="role" name="role" required>
+                    <option value="">Select your role</option>
+                    <option value="faculty">Faculty</option>
+                    <option value="student">Student</option>
+                    <option value="admin">Administrator</option>
+                </select>
+
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email"
+                       placeholder="Enter your email" required>
+
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password"
+                       placeholder="Enter your password" required>
+
+                <button type="submit" class="login-submit">Login</button>
+
+                {% with messages = get_flashed_messages() %}
+                    {% for message in messages %}
+                        <p class="login-error">{{ message }}</p>
+                    {% endfor %}
+                {% endwith %}
+
+            </form>
+
+            <p class="back-home">
+                <a href="/">← Back to Homepage</a>
+            </p>
+
+        </div>
+
+    </main>
+
+</body>
+</html>

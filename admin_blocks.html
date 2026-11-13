@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Buildings | LPU RoomConnect</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<header>
+    <div class="logo">LPU <span>RoomConnect</span></div>
+    <nav>
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+</header>
+<main class="building-page">
+
+    {% include "_flash.html" %}
+
+    <div class="building-heading">
+        <div>
+            <h1>Academic Buildings</h1>
+            <p>Add and manage university buildings.</p>
+        </div>
+        <a href="{{ url_for('dashboard') }}" class="back-button">← Back to Dashboard</a>
+    </div>
+
+    <div class="building-layout">
+
+        <section class="building-form-card">
+            <h2>Add New Building</h2>
+            <p class="section-description">Enter the details of the academic building.</p>
+
+            <form method="POST">
+                <div class="form-group">
+                    <label for="building_number">Building Number</label>
+                    <input type="text" id="building_number" name="building_number"
+                           placeholder="Example: C1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="building_name">Building Name</label>
+                    <input type="text" id="building_name" name="building_name"
+                           placeholder="Enter building name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="4"
+                              placeholder="Enter building description"></textarea>
+                </div>
+
+                <button type="submit" class="building-submit">+ Add Building</button>
+            </form>
+        </section>
+
+        <section class="building-list-card">
+            <div class="building-list-heading">
+                <div>
+                    <h2>Registered Buildings</h2>
+                    <p class="section-description">Buildings currently in RoomConnect.</p>
+                </div>
+                <span class="building-count">{{ blocks|length }} Total</span>
+            </div>
+
+            {% if blocks %}
+            <div class="building-list">
+                {% for block in blocks %}
+                <div class="building-item">
+                    <div class="building-number">{{ block.building_number or "—" }}</div>
+                    <div class="building-details">
+                        <h3>{{ block.block_name }}</h3>
+                        <p>{{ block.description or "No description provided." }}</p>
+                        <p>{{ block.room_count }} room(s)</p>
+                    </div>
+                    <form method="POST"
+                          action="{{ url_for('delete_block', block_id=block.id) }}"
+                          onsubmit="return confirm('Delete this building?');">
+                        <button type="submit" class="delete-button">Delete</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-buildings">
+                <h3>No buildings added yet</h3>
+                <p>Add your first academic building using the form.</p>
+            </div>
+            {% endif %}
+        </section>
+
+    </div>
+
+</main>
+
+</body>
+</html>

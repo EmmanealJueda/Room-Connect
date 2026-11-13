@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Requests | LPU RoomConnect</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<header>
+    <div class="logo">LPU <span>RoomConnect</span></div>
+    <nav>
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+</header>
+<main class="admin-page">
+    {% include "_flash.html" %}
+
+    <div class="page-heading">
+        <h1>Booking Requests</h1>
+        <p>Review room booking requests and manage their approval status.</p>
+    </div>
+
+    <section class="management-list booking-list">
+        <div class="list-heading">
+            <h2>All Requests</h2>
+            <span>{{ bookings|length }} Requests</span>
+        </div>
+
+        {% if bookings %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Requested By</th><th>Room</th><th>Block</th><th>Date</th>
+                        <th>Time</th><th>Purpose</th><th>Status</th><th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for booking in bookings %}
+                    <tr>
+                        <td>{{ booking.faculty_name or "—" }}</td>
+                        <td>{{ booking.room_number or "—" }}</td>
+                        <td>{{ booking.building_number or "" }} - {{ booking.block_name or "" }}</td>
+                        <td>{{ booking.booking_date }}</td>
+                        <td>{{ booking.start_time }} - {{ booking.end_time }}</td>
+                        <td>{{ booking.purpose }}</td>
+                        <td><span class="status-label">{{ booking.status|title }}</span></td>
+                        <td>
+                            {% if booking.status == 'Pending' %}
+                            <form method="POST" class="booking-actions">
+                                <input type="hidden" name="booking_id" value="{{ booking.id }}">
+                                <button type="submit" name="action" value="Approved" class="approve-button">Approve</button>
+                                <button type="submit" name="action" value="Rejected" class="reject-button">Reject</button>
+                            </form>
+                            {% else %}
+                            <span>Processed</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="empty-message">There are no booking requests yet.</p>
+        {% endif %}
+    </section>
+</main>
+
+</body>
+</html>

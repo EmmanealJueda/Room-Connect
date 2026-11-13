@@ -1,0 +1,115 @@
+
+{% extends "base.html" %}
+
+{% block title %}Book a Room | LPU RoomConnect{% endblock %}
+
+{% block content %}
+<section class="faculty-page">
+
+    <div class="faculty-page-heading">
+        <span class="faculty-label">FACULTY PORTAL</span>
+        <h1>Book a Room</h1>
+        <p>Submit a request to reserve a classroom.</p>
+    </div>
+
+    <div class="faculty-form-card">
+        <h2>Booking Details</h2>
+        <p class="faculty-form-description">Fill in the details below to request a room.</p>
+
+        <form method="POST" action="{{ url_for('faculty_book_room') }}">
+
+            <div class="faculty-form-grid">
+
+                <div class="faculty-form-group">
+                    <label for="building">Academic Block</label>
+                    <select name="building_id" id="building" required>
+                        <option value="">Select academic block</option>
+                        {% for block in blocks|default([]) %}
+                        <option value="{{ block.id }}">
+                            {{ block.building_number }} - {{ block.block_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="faculty-form-group">
+                    <label for="room">Classroom</label>
+                    <select name="room_id" id="room" required>
+                        <option value="">Select classroom</option>
+                        {% for room in rooms|default([]) %}
+                        <option value="{{ room.id }}" data-block="{{ room.block_id }}">
+                            {{ room.building_number }}-{{ room.room_number }} - {{ room.room_type }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="faculty-form-group">
+                    <label for="date">Booking Date</label>
+                    <input type="date" name="booking_date" id="date" required>
+                </div>
+
+                <div class="faculty-form-group">
+                    <label for="purpose">Purpose</label>
+                    <select name="purpose" id="purpose" required>
+                        <option value="">Select purpose</option>
+                        <option value="Extra Class">Extra Class</option>
+                        <option value="Make-up Class">Make-up Class</option>
+                        <option value="Meeting">Meeting</option>
+                        <option value="Seminar">Seminar</option>
+                        <option value="Workshop">Workshop</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="faculty-form-group">
+                    <label for="start_time">Start Time</label>
+                    <input type="time" name="start_time" id="start_time" required>
+                </div>
+
+                <div class="faculty-form-group">
+                    <label for="end_time">End Time</label>
+                    <input type="time" name="end_time" id="end_time" required>
+                </div>
+
+                <div class="faculty-form-group full-width">
+                    <label for="description">Additional Details</label>
+                    <textarea name="description" id="description"
+                        rows="4" placeholder="Enter any additional information..."></textarea>
+                </div>
+
+            </div>
+
+            <div class="faculty-form-actions">
+                <a href="{{ url_for('faculty_dashboard') }}" class="faculty-cancel-btn">Cancel</a>
+                <button type="submit" class="faculty-primary-btn">Submit Booking Request</button>
+            </div>
+
+        </form>
+    </div>
+
+</section>
+
+<script>
+    const blockSelect = document.getElementById("building");
+    const roomSelect = document.getElementById("room");
+
+    function filterRooms() {
+        const selected = blockSelect.value;
+        let currentStillVisible = false;
+        Array.from(roomSelect.options).forEach(function (opt) {
+            if (!opt.value) { return; }
+            const show = !selected || opt.dataset.block === selected;
+            opt.hidden = !show;
+            opt.disabled = !show;
+            if (show && opt.value === roomSelect.value) { currentStillVisible = true; }
+        });
+        if (!currentStillVisible) { roomSelect.value = ""; }
+    }
+
+    blockSelect.addEventListener("change", filterRooms);
+    filterRooms();
+
+    document.getElementById("date").min = new Date().toISOString().split("T")[0];
+</script>
+{% endblock %}

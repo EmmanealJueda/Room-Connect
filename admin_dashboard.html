@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | LPU RoomConnect</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<header>
+    <div class="logo">LPU <span>RoomConnect</span></div>
+    <nav>
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+</header>
+<main class="dashboard-container">
+
+    {% include "_flash.html" %}
+
+    <div class="admin-heading">
+        <div>
+            <h1>Administrator Dashboard</h1>
+            <p>Welcome, {{ session["name"] }}! Manage your university resources.</p>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+
+        <div class="dashboard-card">
+            <div class="admin-card-icon">🏢</div>
+            <h3>Manage Blocks</h3>
+            <p>Add, view and manage academic buildings. ({{ total_blocks }} total)</p>
+            <a href="{{ url_for('manage_blocks') }}" class="admin-action">Manage Blocks →</a>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="admin-card-icon">🚪</div>
+            <h3>Manage Rooms</h3>
+            <p>Add, delete and view rooms in academic blocks. ({{ total_rooms }} total)</p>
+            <a href="{{ url_for('manage_rooms') }}" class="admin-action">Manage Rooms →</a>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="admin-card-icon">👥</div>
+            <h3>Manage Users</h3>
+            <p>Faculty, students and administrators. ({{ total_users }} total)</p>
+            <a href="{{ url_for('manage_users') }}" class="admin-action">Manage Users →</a>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="admin-card-icon">📋</div>
+            <h3>Booking Requests</h3>
+            <p>Review, approve or reject requests. ({{ pending_bookings }} pending)</p>
+            <a href="{{ url_for('booking_requests') }}" class="admin-action">View Requests →</a>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="admin-card-icon">🗓️</div>
+            <h3>Manage Timetable</h3>
+            <p>Assign classes to sections, faculty and rooms.</p>
+            <a href="{{ url_for('manage_schedule') }}" class="admin-action">Manage Timetable →</a>
+        </div>
+
+    </div>
+
+</main>
+
+</body>
+</html>
